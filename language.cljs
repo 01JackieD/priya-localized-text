@@ -90,7 +90,9 @@
     :english     "No"}
    })
 
-(def date-time-formats
+(def ^:private date-time-formats
+  "These are date-time formatting strings.  
+  See https://momentjs.com/docs/#/displaying/format for the list of available date-time formats."
   {
    :human-readable-time-format
    {:description "Date and time format for technical data display"
