@@ -9,7 +9,15 @@
   (:require [priya.db :as db]
             [clojure.string :as str]))
 
+(declare get-text)
+
 (def ^:private moment (js/require "moment"))
+(def ^:private moment-fr (js/require "moment/locale/fr"))
+
+(defn set-date-format-locale
+  "Sets the locale for moment data-time formatting"
+  [& locale-str]
+  (-> moment (.locale (or @db/locale* locale-str))))
 
 (defn- lines
   "Formats a collection of strings for display as a group."
@@ -73,6 +81,10 @@
    {:description "Default text for saving actions."
     :english     "Save"}
 
+   :default-saving-text
+   {:description "Default text for pending saving actions."
+    :english     "Saving..."}
+
    :default-done-text
    {:description "Default text for saving actions."
     :english     "Done"}
@@ -90,13 +102,23 @@
     :english     "No"}
    })
 
-(def ^:private date-time-formats
-  "These are date-time formatting strings.  
-  See https://momentjs.com/docs/#/displaying/format for the list of available date-time formats."
+(def date-time-formats
   {
-   :human-readable-time-format
+   :date-hour-minute-second
    {:description "Date and time format for technical data display"
-    :english     "M/D h:mm:ssA"}
+    :english     "M/D h:mm:ssa"}
+
+   :date-hour-minute
+   {:description "Date and time format with minute resolution"
+    :english     "M/D, h:mma"}
+
+   :date-hour-minute-verbose
+   {:description "Date and time format with minute resolution"
+    :english     "MMM. Do [at] h:mma"}
+
+   :hour-minute
+   {:description "Format for text describing when the last ring sync occurred."
+    :english     "h:mma"}
 
    :human-readable-day-format
    {:description "Default date format for display"
@@ -107,7 +129,7 @@
     :english     "YYYY-MM-DD"}
 
    :period-date-display-format
-   {:description "The format for dsiplaying period start and end date."
+   {:description "The format for displaying period start and end date."
     :english     "MMM D, YY"}
 
    :date-of-birth-selector-format
@@ -130,9 +152,6 @@
    {:description "The date-time format for time of an event in 'My Results' list"
     :english     "M/D ha"}
 
-   :last-synced-time-format
-   {:description "Format for text describing when the last ring sync occurred."
-    :english "h:mma"}
    })
 
 (def ^:private notifications
@@ -166,20 +185,22 @@
   {
    :create-account-while-cycle-active
    {:description "Confirmation text to present when a user attempts to create and login to a different account while they have an active cycle."
-    :english     {:title        "Are You Sure?"
-                  :message      (str "You have a cycle that isn't completed on the account with email "
-                                     @db/email*
-                                     ".\n\n You can only record cycles from one account at a time,"
-                                     " so creating a new account will cause you to lose that active cycle.")
-                  :confirm-text "Create New Account"}}
+    :english     (fn []
+                   {:title        "Are You Sure?"
+                    :message      (str "You have a cycle that isn't completed on the account with email "
+                                       @db/email*
+                                       ".\n\n You can only record cycles from one account at a time,"
+                                       " so creating a new account will cause you to lose that active cycle.")
+                    :confirm-text "Create New Account"})}
 
    :login-new-account-while-cycle-active
    {:description "Confirmation text to present when a user attempts to switch accounts while they have an active cycle."
-    :english     {:title        "Are You Sure?"
-                  :message      (str "You have a cycle that isn't completed on the account with email " @db/email*
-                                     ".\n\n You can only record cycles from one account at a time,"
-                                     " so logging in with a different email will cause you to lose that active cycle.")
-                  :confirm-text "Login Anyway"}}
+    :english     (fn []
+                   {:title        "Are You Sure?"
+                    :message      (str "You have a cycle that isn't completed on the account with email " @db/email*
+                                       ".\n\n You can only record cycles from one account at a time,"
+                                       " so logging in with a different email will cause you to lose that active cycle.")
+                    :confirm-text "Login Anyway"})}
 
    :reset-pairing
    {:description "Confirmation text to present when a user attempts to reset ring pairing during an active cycle."
@@ -196,6 +217,34 @@
 
 (def ^:private alerts
   {
+
+   :default-api-error
+   {:description "This is the alert to present as a last resort if the app is not able to specify the error. For example if some sort or server error occurs."
+    :english {:title "Darn!"
+              :message "Something went wrong there.  Could you please make sure you have WiFi or Cellular data, then restart the app and try again?  Sorry for the inconvenience.\n\n Sincerely, - The Priya Team"}}
+
+   :send-reset-code-success
+   {:description "Instructions for: user tapped send password reset code and email successfully sent."
+    :english     {:title   "Success!"
+                  :message "Check your email for your reset code, then enter it here along with your your new password."}}
+
+   :password-reset-success
+   {:description "Messaging when "
+    :english {:title "Success!"
+              :message (str "You successfully reset your Priya password.\n"
+                            "You may login with your new password now.")}}
+
+   :send-reset-password-code-no-email
+   {:description "Instructions for: user tapped send password reset code but did not enter an email."
+    :english     {:title   "Please enter an email"
+                  :message (str "Please fill in your email so we can send the reset code.\n\n"
+                                "Important: This must be the same email address as you use for the Priya app.\n\n  Thanks!")}}
+
+   :send-reset-password-code-email-not-in-db
+   {:description "Instructions for: user tapped send password reset code but email address did not correspond to a Priya account."
+    :english     {:title   "No Account For That Email"
+                  :message (str "Sorry, but we don't have a Priya account with that email address.\n Please re-check your email or create a new account.\n\n  Thanks!")}}
+
    :please-accept-location-permission
    {:description "Instructions for: user did not give permission for the app to collect coarse location."
     :english     {:title   "Bluetooth requires location permission."
@@ -231,6 +280,11 @@
    {:description "Instructions for: user attempted to create account but the API call did not succeed."
     :english     {:title   "Hmmm..."
                   :message "Creating your account in the cloud didn't work. Do you have WiFi or Cell data enabled?"}}
+
+   :remote-update-account-failed
+   {:description "Instructions for: user attempted to update account but the API call did not succeed."
+    :english     {:title   "Hmmm..."
+                  :message "Updating your account in the cloud didn't work. Do you have WiFi or Cell data enabled?"}}
 
    :basic-info-invalid
    {:description "User did not completely fill out the basic info form."
@@ -349,6 +403,14 @@
    :create-account-empty-fields
    {:description "During account creation, user left some fields empty"
     :english     "Looks like you left some fields empty!"}
+
+   :update-account-invalid-current-password
+   {:description "During account update, user did not provide their correct password."
+    :english     "The password you entered does not match your current password.\n"}
+
+   :update-account-invalid-new-password
+   {:description "During account update, user did not provide their correct password."
+    :english     "Your new password should be at least six characters.\n"}
    })
 
 (def ^:private text
@@ -385,20 +447,26 @@
    {:description "Text to cancel date of birth entry"
     :english     "Cancel"}
 
-   :temp-graph-time-label
-   {:description "Label on temp graph x-axis when less than a day has passed."
-    :english     "Time of Day"}
-
    :temp-graph-fertile-window
    {:description "Text to display in the fertile window area of the graph."
-    :english     "Fertile\n Window"}
+    :english     (str "Fertile" "\n" "Window")}
 
    :cycle-last-synced-text
    {:description "Text to inform user when the last sync with Ring occurred"
-    :english     (fn [time-format]
-                   (if @db/too-long-since-sync*
-                    (str "\u2718 " " last synced " (-> (moment. @db/last-synced*) (.fromNow)))
-                    (str "\u2714 last synced at " (-> (moment. @db/last-synced*) (.format time-format)))))}
+    :english     (fn []
+                   (str "last ring sync was" " " (-> (moment. @db/last-temp-sync*) (.from @db/current-time*)))
+                   #_(if @db/too-long-since-sync*
+                       (str "last ring sync was" " " (-> (moment. @db/last-temp-sync*) (.from @db/current-time*)))
+                       (str "last ring sync was at" " " (-> (moment. @db/last-temp-sync*) (.format (get-text :hour-minute))))))}
+
+   :cycle-next-temps-at-text
+   {:description "Text to inform user when the next temperature carrying sync will occur."
+    :english     (fn []
+                   (str "next ring sync set for" " " (-> (moment. @db/next-scheduled-temp-sync*) (.format (get-text :hour-minute)))))}
+
+   :bluetooth-off
+   {:description "Text to inform user that their bluetooth is turned off."
+    :english     "your phone's bluetooth is off"}
 
    :cycle-notes-title
    {:description "Title for Cycle Notes text input area"
@@ -414,7 +482,11 @@
 
    :add-a-result-page-title
    {:description "Title on 'Add a result' modal"
-    :english     "Add A Result"}
+    :english     "Add Personal Notes, Fertility Test Results, etc..."}
+
+   :forgot-password-page-title
+   {:description "Title on 'Forgot Password' modal"
+    :english     "Reset Your Password"}
 
    :reset-ring?
    {:description "Text next to reset ring pairing button"
@@ -457,17 +529,18 @@
 
    :pair-with-ring-button-text
    {:description "Text in the button to initiate pairing, and once paired, to view fertile window status"
-    :english     (condp = @db/stage
-                   :scanning "Scanning..."
-                   :pairing "Pairing..."
-                   :paired (str "Fertile\n Window?\n"
-                                (cond
-                                  (= :clinical @db/mode*) "N/A"
-                                  (not @db/fertile-window*) "-not yet-"
-                                  (< (system-time) (:start @db/fertile-window*)) "Soon!"
-                                  (< (:start @db/fertile-window*) (system-time) (:end @db/fertile-window*)) "NOW :)"
-                                  (< (:end @db/fertile-window*) (system-time)) "-passed-"))
-                   "Pair\n With\n Ring")}
+    :english     (fn []
+                   (condp = @db/stage
+                     :scanning "Scanning..."
+                     :pairing "Pairing..."
+                     :paired (str "Fertile\n Window?\n"
+                                  (cond
+                                    (= :clinical @db/mode*) "N/A"
+                                    (not @db/fertile-window*) "-not yet-"
+                                    (< @db/current-time* (:start @db/fertile-window*)) "Soon!"
+                                    (< (:start @db/fertile-window*) @db/current-time* (:end @db/fertile-window*)) "NOW :)"
+                                    (< (:end @db/fertile-window*) @db/current-time*) "-passed-"))
+                     "Pair\n With\n Ring"))}
 
    :notes-input-title
    {:description "Title for notes input in add result view"
@@ -477,14 +550,13 @@
    {:description "Placeholder for notes input in add result view"
     :english     "[Optional] Personal notes about this result..."}
 
-
    :notes-list-title
    {:description "Title for notes is notes list"
     :english     "Notes"}
 
    :my-results-title-text
    {:description "Title of cycle results sections"
-    :english     "My Results"}
+    :english     "Cycle Notes"}
 
    :add-result-button-text
    {:description "Text on the button for adding results."
@@ -530,6 +602,10 @@
    {:description "Text on the button to Create Account"
     :english     "Create Account"}
 
+   :save-account-changes-button-text
+   {:description "Text on the button to Update Account when there are changes to save"
+    :english     "Save Changes"}
+
    :login-button-text
    {:description "Text on the button to Login"
     :english     "Login"}
@@ -558,6 +634,14 @@
    {:description "Sub-title on create account page"
     :english     "let's get to know each other!"}
 
+   :update-account-page-title
+   {:description "Title on update account page"
+    :english     "Update Account"}
+
+   :update-account-page-subtitle
+   {:description "Sub-title on update account page"
+    :english     "Change any field you like!"}
+
    :first-name-input
    {:description "First name input"
     :english     {:title       "First Name"
@@ -577,6 +661,39 @@
    {:description "Create password input"
     :english     {:title       "Password"
                   :placeholder "Create a Priya account password..."}}
+
+   :account-update-password-input
+   {:description "Password input for allowing account updates"
+    :english     {:title       "Current Priya Password"
+                  :placeholder "[required] Enter your current password..."}}
+
+   :update-password-input
+   {:description "Password input to update password from account update view"
+    :english     {:title       "New Priya Password"
+                  :placeholder "[optional] Enter a new Priya password..."}}
+
+   :overwrite-forgotten-password-input
+   {:description "Password input to update password from forgotten password"
+    :english     {:title       "New Priya Password"
+                  :placeholder "Reset password to..."}}
+
+   :password-reset-code-input
+   {:description "Password reset code input to update password from forgotten password"
+    :english     {:title       "Password Reset Code"
+                  :placeholder "Enter your reset code..."}}
+
+   :email-password-reset-code-button-text
+   {:description "Text on the button to email a reset code for a forgotten password."
+    :english     "Email Me A Reset Code"}
+
+   :reset-password
+   {:description "Texts for 'Forgot Password' view."
+    :english     {:empty-fields "Looks like you left some fields empty."
+                  :invalid-password-format "Your password should be at least six characters."
+                  :changed-email-while-resetting-password "Did you just change the the email field after requesting a reset code?"
+                  :invalid-reset-code "That reset code doesn't match what we emailed you.  Please re-check the code or request another one.\n\n-Thanks!"
+                  :reset-code-expired "It looks like your reset code expired.\n\nNote: The reset code expires when you cancel out of this view.  If you've done that, just request another code.\n\n-Thanks!"}}
+
 
    :email-input
    {:description "Email input"
@@ -661,6 +778,27 @@
                      (if (.isSame (moment.) t "day")
                        (str "Today around " (-> (moment. t) (.format hour-of-day)))
                        (-> (moment. t) (.format day-and-hour)))))}
+
+   :info-ring-cloud-sync
+   {:description "Informational text regarding ring and cloud syncs."
+    :english     (fn []
+                   {:next-temps        (if @db/next-scheduled-temp-sync*
+                                         (str "Your ring will send the next group of temperatures at"
+                                              " "
+                                              (-> (moment. @db/next-scheduled-temp-sync*) (.format (get-text :date-hour-minute)))
+                                              ".")
+                                         "Your ring will send the next group of temperatures within an hour.")
+                    :last-temps        (str "You last got temperatures from the ring"
+                                            " "
+                                            (-> (moment. @db/last-temp-sync*) (.format (get-text :date-hour-minute-verbose)))
+                                            ".")
+                    :ring-sync-tip     "Keep your phone in your back pocket for the best chance of receiving temperatures."
+                    :cloud-sync-status (if @db/fully-cloud-synced?*
+                                         "Your cycle is fully saved to the cloud"
+                                         "You have cycle updates that are not saved to the cloud.")
+                    :cloud-sync-tip    "Ensure that WiFi or Cellular data is enabled and tap the Cloud icon on the left to save now."
+                    :next-cloud-sync   "Your cycle will automatically try to save to the cloud every time you receive temperatures or update cycle notes."
+                    })}
    })
 
 (def ^:private terms-of-use
@@ -682,16 +820,13 @@
   "All internationalized verbiage"
   (merge text-constants emails defaults date-time-formats notifications composite-alerts alerts confirmation-dialogs text terms-of-use))
 
+;; Todo: add the desired languages
 (defn get-text
-  "Returns internationalized text."
+  "Returns internationalized text. Any locales must be js/require'd from moment."
   [text-identifier & args]
   (let [current-language :english
+        #_(cond (= @db/locale* "xy-zw") :hungarian
+                :else :english)
         value (get-in verbiage [text-identifier current-language])]
     (when (nil? value) (println "ERROR: No translation in" (name current-language) "for " text-identifier))
     (if (fn? value) (apply value args) value)))
-
-
-
-
-
-
