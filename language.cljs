@@ -170,7 +170,7 @@
 
    :too-long-since-bluetooth-sync
    {:description "Notification message to present when it has been too long since the last bluetooth sync."
-    :english     "It's been too long since your phone and ring have synced over bluetooth.  Your ring attempts to sync about every 2 hours but may miss out if your bluetooth is off, or if your phone is too far away, or if the Priya app is not running (Priya running in the background is okay).  To avoid losing data, keep your phone near your body until the next sync comes in, and consult the user manual if you are still having trouble.\n\n Thanks!  - the Priya Team."}
+    :english     "It's been too long since your phone and ring have synced over bluetooth, so you are at risk of losing some temperature readings.\n\n  To fix this, tap the info icon in your Current Cycle to see when the ring will next attempt to sync, and keep your phone near your body until the next sync comes in.\n\n Thanks!  - the Priya Team."}
 
    :ring-will-soon-expire
    {:description "Notification message to present when the ring will soon expire."
@@ -456,8 +456,8 @@
     :english     (fn []
                    (str "last ring sync was" " " (-> (moment. @db/last-temp-sync*) (.from @db/current-time*)))
                    #_(if @db/too-long-since-sync*
-                       (str "last ring sync was" " " (-> (moment. @db/last-temp-sync*) (.from @db/current-time*)))
-                       (str "last ring sync was at" " " (-> (moment. @db/last-temp-sync*) (.format (get-text :hour-minute))))))}
+                     (str "last ring sync was" " " (-> (moment. @db/last-temp-sync*) (.from @db/current-time*)))
+                     (str "last ring sync was at" " " (-> (moment. @db/last-temp-sync*) (.format (get-text :hour-minute))))))}
 
    :cycle-next-temps-at-text
    {:description "Text to inform user when the next temperature carrying sync will occur."
@@ -769,6 +769,7 @@
     :english     {:custom   "Custom Note"
                   :lh-low   "LH Test was Low"
                   :lh-high  "LH Test was High"
+                  :next-period-started "My Next Period Started"
                   :pregnant "Found out I'm Pregnant"}}
 
    :event-time-selector-label
@@ -826,7 +827,7 @@
   [text-identifier & args]
   (let [current-language :english
         #_(cond (= @db/locale* "xy-zw") :hungarian
-                :else :english)
+              :else :english)
         value (get-in verbiage [text-identifier current-language])]
     (when (nil? value) (println "ERROR: No translation in" (name current-language) "for " text-identifier))
     (if (fn? value) (apply value args) value)))
